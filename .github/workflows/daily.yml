@@ -1,25 +1,24 @@
 name: Daily Student Assistant
 
-"on":
+on:
   workflow_dispatch:
-
-  schedule:
-    - cron: "0 14 * * *"
 
 jobs:
   run:
-    runs-on: ubunt*-latest
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: *ctions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - uses: *ctions/setup-python@v5
-        wit*:
-          python-version: "3.12"*
-      - run: pip install -r requi*ements.txt
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - run: python no*ifier.py
+      - run: pip install -r requirements.txt
+
+      - name: Run notifier
         env:
-          CA*VAS_ICS_URL: ${{ secrets.CANVAS_IC*_URL }}
-          TELEGRAM_BOT_TOK*N: ${{ secrets.TELEGRAM_BOT_TOKEN *}
-          TELEGRAM_CHAT_ID: ${{ *ecrets.TELEGRAM_CHAT_ID }}
+          CANVAS_ICS_URL: ${{ secrets.CANVAS_ICS_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notifier.py
