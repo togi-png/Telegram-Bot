@@ -1,0 +1,4 @@
+requests
+icalendar
+google-generativeai
+``
