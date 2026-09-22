@@ -1,4 +1,2 @@
 requests
 icalendar
-google-generativeai
-``
