@@ -1,10 +1,10 @@
 name: Daily Student Assistant
 
 on:
-  schedule:
-    - cron: '0 14 * * *'
-
   workflow_dispatch:
+
+  schedule:
+    - cron: "0 14 * * *"
 
 jobs:
   run:
