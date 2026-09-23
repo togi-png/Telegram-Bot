@@ -24,4 +24,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CANVAS_ICS_URL: ${{ secrets.CANVAS_ICS_URL }}
+          GOOGLE_ICS_URL: ${{ secrets.GOOGLE_ICS_URL }}
         run: python notifier.py
