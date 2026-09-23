@@ -141,24 +141,25 @@ def get_todays_classes():
         if start_time.date() != today:
             continue
 
-       location = str(
-    component.get(
-        "location",
-        "Location TBD"
-    )
-)
+        location = str(
+            component.get(
+                "location",
+                ""
+            )
+        ).strip()
 
-classes.append({
-    "title": str(
-        component.get(
-            "summary",
-            "Untitled Class"
-        )
-    ),
-    "start": start_time,
-    "end": end_time,
-    "location": location
-})
+        classes.append({
+            "title": str(
+                component.get(
+                    "summary",
+                    "Untitled Class"
+                )
+            ),
+            "start": start_time,
+            "end": end_time,
+            "location": location
+        })
+
     classes.sort(
         key=lambda x: x["start"]
     )
