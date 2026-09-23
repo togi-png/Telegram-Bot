@@ -114,20 +114,27 @@ def get_todays_classes():
             continue
 
         start = component.get("dtstart")
+        end = component.get("dtend")
 
-        if start is None:
+        if start is None or end is None:
             continue
 
         start_time = start.dt
+        end_time = end.dt
 
-        if not isinstance(
-            start_time,
-            datetime
-        ):
+        if not isinstance(start_time, datetime):
+            continue
+
+        if not isinstance(end_time, datetime):
             continue
 
         if start_time.tzinfo is None:
             start_time = start_time.replace(
+                tzinfo=timezone.utc
+            )
+
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(
                 tzinfo=timezone.utc
             )
 
@@ -141,15 +148,15 @@ def get_todays_classes():
                     "Untitled Class"
                 )
             ),
-            "time": start_time
+            "start": start_time,
+            "end": end_time
         })
 
     classes.sort(
-        key=lambda x: x["time"]
+        key=lambda x: x["start"]
     )
 
     return classes
-
 
 # =====================================
 # ASSIGNMENTS
@@ -262,7 +269,9 @@ try:
             )
 
             lines.append(
-                f"  🕒 {course['time'].strftime('%I:%M %p')}"
+                f"  🕒 "
+                f"{course['start'].strftime('%I:%M %p')} - "
+                f"{course['end'].strftime('%I:%M %p')}"
             )
 
             lines.append("")
