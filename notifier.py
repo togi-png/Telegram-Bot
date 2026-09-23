@@ -73,7 +73,7 @@ else:
     ""
 ]
 
-    for due_date, title in events:
+for due_date, title in events:
 
         lines.append(f"• {title}")
 
