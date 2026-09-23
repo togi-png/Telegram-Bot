@@ -1,5 +1,5 @@
 import os
 
-print(**ANVAS:", "CANVAS_ICS_URL" in**s.environ)
-print("**LEGRAM:", "TELEGRAM_BOT_TOKEN" in**s.environ)
-print("CHAT:", "TELEGR**_CHAT_ID" in os.environ)
+print("CANVAS:", "CANVAS_ICS_URL" in os.environ)
+print("TELEGRAM:", "TELEGRAM_BOT_TOKEN" in os.environ)
+print("CHAT:", "TELEGRAM_CHAT_ID" in os.environ)
