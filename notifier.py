@@ -1,5 +1,9 @@
 import os
+import requests
 
-print("CANVAS:", "CANVAS_ICS_URL" in os.environ)
-print("TELEGRAM:", "TELEGRAM_BOT_TOKEN" in os.environ)
-print("CHAT:", "TELEGRAM_CHAT_ID" in os.environ)
+url = os.environ["CANVAS_ICS_URL"]
+
+response = requests.get(url)
+
+print("STATUS:", response.status_code)
+print(response.text[:500])
