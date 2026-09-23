@@ -133,7 +133,7 @@ try:
     )
 
     next_week = (
-        now + timedelta(days=7)
+        now + timedelta(days=14)
     )
 
     assignments = []
