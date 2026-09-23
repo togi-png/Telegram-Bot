@@ -5,9 +5,10 @@ on:
 
   schedule:
     - cron: "0 14 * * *"
+
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ubunt*-latest
 
     steps:
       - uses: actions/checkout@v4
