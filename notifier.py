@@ -9,46 +9,6 @@ BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 
-def estimate_time(title):
-    title = title.lower()
-
-    if "quiz" in title:
-        return 15
-
-    if "discussion" in title:
-        return 30
-
-    if "homework" in title:
-        return 60
-
-    if "assignment" in title:
-        return 60
-
-    if "lab" in title:
-        return 90
-
-    if "essay" in title:
-        return 180
-
-    if "paper" in title:
-        return 240
-
-    if "project" in title:
-        return 300
-
-    return 60
-
-
-def category(minutes):
-    if minutes <= 30:
-        return "QUICK WINS"
-
-    if minutes <= 90:
-        return "MEDIUM EFFORT"
-
-    return "MAJOR TASKS"
-
-
 def send_telegram(message):
     requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
@@ -67,7 +27,7 @@ cal = Calendar.from_ical(response.text)
 now = datetime.now(timezone.utc)
 next_week = now + timedelta(days=7)
 
-assignments = []
+events = []
 
 for component in cal.walk():
 
@@ -78,7 +38,7 @@ for component in cal.walk():
 
     due = component.get("dtstart")
 
-    if not due:
+    if due is None:
         continue
 
     due_date = due.dt
@@ -91,16 +51,36 @@ for component in cal.walk():
             tzinfo=timezone.utc
         )
 
-    if not (now <= due_date <= next_week):
-        continue
+    if now <= due_date <= next_week:
+        events.append(
+            (due_date, title)
+        )
 
-    minutes = estimate_time(title)
+events.sort()
 
-    assignments.append({
-        "title": title,
-        "due": due_date,
-        "minutes": minutes
-    })
+if len(events) == 0:
 
-assignments.sort(
-    key=lambda
+    send_telegram(
+        "✅ You're all caught up!\n\nNo assignments due in the next 7 days."
+    )
+
+else:
+
+    lines = [
+        "✅ UPCOMING ASSIGNMENTS",
+        ""
+    ]
+
+    for due_date, title in events:
+
+        lines.append(f"• {title}")
+
+        lines.append(
+            due_date.strftime("%a %m/%d %I:%M %p")
+        )
+
+        lines.append("")
+
+    send_telegram(
+        "\n".join(lines)
+    )
