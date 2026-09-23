@@ -15,6 +15,7 @@ GOOGLE_ICS_URL = os.environ["GOOGLE_ICS_URL"]
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
+
 # =====================================
 # TELEGRAM
 # =====================================
@@ -41,35 +42,7 @@ def send_telegram(message):
 
 
 # =====================================
-# ASSIGNMENT DETECTION
-# =====================================
-
-def is_assignment(title):
-
-    title = title.lower()
-
-    keywords = [
-        "assignment",
-        "discussion",
-        "quiz",
-        "homework",
-        "lab",
-        "essay",
-        "paper",
-        "project",
-        "exam",
-        "midterm",
-        "final"
-    ]
-
-    return any(
-        keyword in title
-        for keyword in keywords
-    )
-
-
-# =====================================
-# WORKLOAD ESTIMATION
+# WORKLOAD ESTIMATES
 # =====================================
 
 def estimate_minutes(title):
@@ -113,13 +86,79 @@ def estimate_minutes(title):
 
 
 # =====================================
-# MAIN
+# CLASSES
 # =====================================
 
-try:
+def get_todays_classes():
 
     response = requests.get(
-        ICS_URL,
+        GOOGLE_ICS_URL,
+        timeout=30
+    )
+
+    response.raise_for_status()
+
+    calendar = Calendar.from_ical(
+        response.text
+    )
+
+    today = datetime.now(
+        timezone.utc
+    ).date()
+
+    classes = []
+
+    for component in calendar.walk():
+
+        if component.name != "VEVENT":
+            continue
+
+        start = component.get("dtstart")
+
+        if start is None:
+            continue
+
+        start_time = start.dt
+
+        if not isinstance(
+            start_time,
+            datetime
+        ):
+            continue
+
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(
+                tzinfo=timezone.utc
+            )
+
+        if start_time.date() != today:
+            continue
+
+        classes.append({
+            "title": str(
+                component.get(
+                    "summary",
+                    "Untitled Class"
+                )
+            ),
+            "time": start_time
+        })
+
+    classes.sort(
+        key=lambda x: x["time"]
+    )
+
+    return classes
+
+
+# =====================================
+# ASSIGNMENTS
+# =====================================
+
+def get_assignments():
+
+    response = requests.get(
+        CANVAS_ICS_URL,
         timeout=30
     )
 
@@ -133,7 +172,7 @@ try:
         timezone.utc
     )
 
-    next_week = (
+    future_window = (
         now + timedelta(days=14)
     )
 
@@ -147,12 +186,9 @@ try:
         title = str(
             component.get(
                 "summary",
-                "Untitled Event"
+                "Untitled Assignment"
             )
         )
-
-        #if not is_assignment(title):
-            #continue
 
         due = component.get("dtstart")
 
@@ -168,15 +204,12 @@ try:
             continue
 
         if due_date.tzinfo is None:
-
-            due_date = (
-                due_date.replace(
-                    tzinfo=timezone.utc
-                )
+            due_date = due_date.replace(
+                tzinfo=timezone.utc
             )
 
         if not (
-            now <= due_date <= next_week
+            now <= due_date <= future_window
         ):
             continue
 
@@ -192,20 +225,68 @@ try:
         key=lambda x: x["due"]
     )
 
-    # =========================
-    # NO ASSIGNMENTS
-    # =========================
+    return assignments
+
+
+# =====================================
+# MAIN
+# =====================================
+
+try:
+
+    todays_classes = get_todays_classes()
+
+    assignments = get_assignments()
+
+    lines = [
+        "📅 DAILY BRIEFING",
+        ""
+    ]
+
+    # -------------------------
+    # CLASSES
+    # -------------------------
+
+    if todays_classes:
+
+        lines.append(
+            "TODAY'S CLASSES"
+        )
+
+        lines.append("")
+
+        for course in todays_classes:
+
+            lines.append(
+                f"• {course['title']}"
+            )
+
+            lines.append(
+                f"  🕒 {course['time'].strftime('%I:%M %p')}"
+            )
+
+            lines.append("")
+
+    else:
+
+        lines.append(
+            "No classes today."
+        )
+
+        lines.append("")
+
+    # -------------------------
+    # ASSIGNMENTS
+    # -------------------------
 
     if len(assignments) == 0:
 
-        send_telegram(
-            "✅ You're all caught up!\n\n"
+        lines.append("📚 ASSIGNMENTS")
+        lines.append("")
+
+        lines.append(
             "No assignments due in the next 14 days."
         )
-
-    # =========================
-    # ASSIGNMENTS FOUND
-    # =========================
 
     else:
 
@@ -219,14 +300,22 @@ try:
             len(assignments)
         )
 
-        lines = [
-            "✅ WEEKLY TO-DO LIST",
-            "",
-            f"Assignments Due: {len(assignments)}",
-            f"Estimated Workload: {round(total_minutes / 60, 1)} hrs",
-            f"Average Assignment: {avg_minutes} min",
-            ""
-        ]
+        lines.append("📚 ASSIGNMENTS")
+        lines.append("")
+
+        lines.append(
+            f"Assignments Due: {len(assignments)}"
+        )
+
+        lines.append(
+            f"Estimated Workload: {round(total_minutes / 60, 1)} hrs"
+        )
+
+        lines.append(
+            f"Average Assignment: {avg_minutes} min"
+        )
+
+        lines.append("")
 
         for assignment in assignments:
 
@@ -235,24 +324,18 @@ try:
             )
 
             lines.append(
-                f"  📅 "
-                f"{assignment['due'].strftime('%a %m/%d %I:%M %p')}"
+                f"  📅 {assignment['due'].strftime('%a %m/%d %I:%M %p')}"
             )
 
             lines.append(
-                f"  ⏱ "
-                f"{assignment['minutes']} min"
+                f"  ⏱ {assignment['minutes']} min"
             )
 
             lines.append("")
 
-        send_telegram(
-            "\n".join(lines)
-        )
-
-# =====================================
-# ERROR HANDLING
-# =====================================
+    send_telegram(
+        "\n".join(lines)
+    )
 
 except Exception as e:
 
@@ -264,6 +347,8 @@ except Exception as e:
     print(error_message)
 
     try:
-        send_telegram(error_message)
+        send_telegram(
+            error_message
+        )
     except Exception:
         pass
