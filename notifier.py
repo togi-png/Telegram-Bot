@@ -66,10 +66,12 @@ if len(events) == 0:
 
 else:
 
-    lines = [
-        "✅ UPCOMING ASSIGNMENTS",
-        ""
-    ]
+ lines = [
+    "✅ UPCOMING ASSIGNMENTS",
+    "",
+    f"Assignments Due: {len(events)}",
+    ""
+]
 
     for due_date, title in events:
 
