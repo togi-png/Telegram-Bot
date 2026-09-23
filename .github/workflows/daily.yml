@@ -3,6 +3,8 @@ name: Daily Student Assistant
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: "0 14 * * *"
 jobs:
   run:
     runs-on: ubuntu-latest
