@@ -8,7 +8,6 @@ ICS_URL = os.environ["CANVAS_ICS_URL"]
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-
 def send_telegram(message):
     requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
@@ -17,7 +16,6 @@ def send_telegram(message):
             "text": message
         }
     )
-
 
 response = requests.get(ICS_URL)
 response.raise_for_status()
@@ -66,12 +64,26 @@ if len(events) == 0:
 
 else:
 
- lines = [
-    "✅ UPCOMING ASSIGNMENTS",
-    "",
-    f"Assignments Due: {len(events)}",
-    ""
-]
+    lines = [
+        "✅ UPCOMING ASSIGNMENTS",
+        "",
+        f"Assignments Due: {len(events)}",
+        ""
+    ]
+
+    for due_date, title in events:
+
+        lines.append(f"• {title}")
+
+        lines.append(
+            due_date.strftime("%a %m/%d %I:%M %p")
+        )
+
+        lines.append("")
+
+    send_telegram(
+        "\n".join(lines)
+    )
 
 for due_date, title in events:
 
