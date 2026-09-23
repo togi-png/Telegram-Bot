@@ -150,8 +150,8 @@ try:
             )
         )
 
-        if not is_assignment(title):
-            continue
+        #if not is_assignment(title):
+            #continue
 
         due = component.get("dtstart")
 
