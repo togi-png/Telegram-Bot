@@ -9,10 +9,11 @@ from icalendar import Calendar
 # CONFIG
 # =====================================
 
-ICS_URL = os.environ["CANVAS_ICS_URL"]
+CANVAS_ICS_URL = os.environ["CANVAS_ICS_URL"]
+GOOGLE_ICS_URL = os.environ["GOOGLE_ICS_URL"]
+
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-
 
 # =====================================
 # TELEGRAM
