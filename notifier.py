@@ -199,7 +199,7 @@ try:
 
         send_telegram(
             "✅ You're all caught up!\n\n"
-            "No assignments due in the next 7 days."
+            "No assignments due in the next 14 days."
         )
 
     # =========================
