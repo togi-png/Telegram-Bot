@@ -14,6 +14,7 @@ GOOGLE_ICS_URL = os.environ["GOOGLE_ICS_URL"]
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+MODE = os.getenv("MODE", "assignments")
 
 
 # =====================================
@@ -89,22 +90,21 @@ def estimate_minutes(title):
 # CLASSES
 # =====================================
 
-def get_todays_classes():
-
+def get_tomorrows_classes():
     response = requests.get(
         GOOGLE_ICS_URL,
         timeout=30
     )
-
     response.raise_for_status()
 
     calendar = Calendar.from_ical(
         response.text
     )
 
-    today = datetime.now(
-        timezone.utc
-    ).date()
+    tomorrow = (
+        datetime.now(timezone.utc).date()
+        + timedelta(days=1)
+    )
 
     classes = []
 
@@ -138,7 +138,7 @@ def get_todays_classes():
                 tzinfo=timezone.utc
             )
 
-        if start_time.date() != today:
+        if start_time.date() != tomorrow:
             continue
 
         location = str(
@@ -249,127 +249,111 @@ def get_assignments():
 
 try:
 
-    todays_classes = get_todays_classes()
+    if MODE == "assignments":
 
-    assignments = get_assignments()
+        assignments = get_assignments()
 
-    lines = [
-        "📅 DAILY BRIEFING",
-        ""
-    ]
+        lines = [
+            "🌅 GOOD MORNING",
+            "",
+            "📚 ASSIGNMENTS",
+            ""
+        ]
 
-    # -------------------------
-    # CLASSES
-    # -------------------------
-
-    if todays_classes:
-
-        lines.append(
-            "TODAY'S CLASSES"
-        )
-
-        lines.append("")
-
-        for course in todays_classes:
+        if not assignments:
 
             lines.append(
-                f"• {course['title']}"
+                "✅ No assignments due in the next 14 days."
+            )
+
+        else:
+
+            total_minutes = sum(
+                a["minutes"]
+                for a in assignments
+            )
+
+            avg_minutes = round(
+                total_minutes /
+                len(assignments)
             )
 
             lines.append(
-                f"  🕒 "
-                f"{course['start'].strftime('%I:%M %p')} - "
-                f"{course['end'].strftime('%I:%M %p')}"
+                f"Assignments Due: {len(assignments)}"
             )
 
             lines.append(
-                f"  📍 {course['location']}"
-            )
-
-            lines.append("")
-
-    else:
-
-        lines.append(
-            "No classes today."
-        )
-
-        lines.append("")
-
-    # -------------------------
-    # ASSIGNMENTS
-    # -------------------------
-
-    if len(assignments) == 0:
-
-        lines.append("📚 ASSIGNMENTS")
-        lines.append("")
-
-        lines.append(
-            "No assignments due in the next 14 days."
-        )
-
-    else:
-
-        total_minutes = sum(
-            a["minutes"]
-            for a in assignments
-        )
-
-        avg_minutes = round(
-            total_minutes /
-            len(assignments)
-        )
-
-        lines.append("📚 ASSIGNMENTS")
-        lines.append("")
-
-        lines.append(
-            f"Assignments Due: {len(assignments)}"
-        )
-
-        lines.append(
-            f"Estimated Workload: {round(total_minutes / 60, 1)} hrs"
-        )
-
-        lines.append(
-            f"Average Assignment: {avg_minutes} min"
-        )
-
-        lines.append("")
-
-        for assignment in assignments:
-
-            lines.append(
-                f"• {assignment['title']}"
+                f"Estimated Workload: {round(total_minutes / 60, 1)} hrs"
             )
 
             lines.append(
-                f"  📅 {assignment['due'].strftime('%a %m/%d %I:%M %p')}"
-            )
-
-            lines.append(
-                f"  ⏱ {assignment['minutes']} min"
+                f"Average Assignment: {avg_minutes} min"
             )
 
             lines.append("")
+
+            for assignment in assignments:
+
+                days_left = (
+                    assignment["due"].date()
+                    - datetime.now(timezone.utc).date()
+                ).days
+
+                lines.append(
+                    f"• {assignment['title']}"
+                )
+
+                lines.append(
+                    f"  📅 {assignment['due'].strftime('%a %m/%d %I:%M %p')}"
+                )
+
+                lines.append(
+                    f"  ⏳ {days_left} day(s) remaining"
+                )
+
+                lines.append(
+                    f"  ⏱ {assignment['minutes']} min"
+                )
+
+                lines.append("")
+
+    else:
+
+        tomorrows_classes = get_tomorrows_classes()
+
+        lines = [
+            "🌙 TOMORROW'S SCHEDULE",
+            ""
+        ]
+
+        if not tomorrows_classes:
+
+            lines.append(
+                "🎉 No classes scheduled tomorrow."
+            )
+
+        else:
+
+            for course in tomorrows_classes:
+
+                lines.append(
+                    f"📚 {course['title']}"
+                )
+
+                lines.append(
+                    f"🕒 {course['start'].strftime('%I:%M %p')} - "
+                    f"{course['end'].strftime('%I:%M %p')}"
+                )
+
+                lines.append(
+                    f"📍 {course['location']}"
+                )
+
+                lines.append("")
 
     send_telegram(
         "\n".join(lines)
     )
 
 except Exception as e:
-
-    error_message = (
-        "⚠️ Assignment Bot Error\n\n"
-        f"{str(e)}"
-    )
-
-    print(error_message)
-
-    try:
-        send_telegram(
-            error_message
-        )
-    except Exception:
         pass
