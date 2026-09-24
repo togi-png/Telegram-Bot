@@ -355,5 +355,12 @@ try:
         "\n".join(lines)
     )
 
-except Exception as e:
-        pass
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+try:
+    ...
+except Exception:
+    logging.exception("Notifier failed")
+    raise
