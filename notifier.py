@@ -22,16 +22,6 @@ BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 # =====================================
-# COURSE PREP
-# =====================================
-
-COURSE_PREP = [
-    "Complete assigned readings",
-    "Prepare discussion notes",
-    "Bring laptop/device"
-]
-
-# =====================================
 # MANUAL DEADLINES
 # =====================================
 
@@ -121,26 +111,65 @@ def estimate_minutes(title):
 # MAJOR DEADLINES
 # =====================================
 
-def is_major_deadline(title):
+lines.append("")
+lines.append("📅 MAJOR DEADLINES")
+lines.append("")
 
-    title = title.lower()
+today = datetime.now(CENTRAL)
 
-    keywords = [
-        "midterm",
-        "final",
-        "project",
-        "paper",
-        "essay",
-        "research",
-        "presentation",
-        "exam"
-    ]
+upcoming_major_deadlines = []
 
-    return any(
-        keyword in title
-        for keyword in keywords
+# Canvas-detected major deadlines
+
+for deadline in major_deadlines:
+
+    days_left = (
+        deadline["due"].date()
+        - today.date()
+    ).days
+
+    if days_left <= 30:
+
+        upcoming_major_deadlines.append({
+            "title": deadline["title"],
+            "days_left": days_left
+        })
+
+# Manual syllabus deadlines
+
+for deadline in COURSE_DEADLINES:
+
+    days_left = (
+        deadline["due"].date()
+        - today.date()
+    ).days
+
+    if 0 <= days_left <= 30:
+
+        upcoming_major_deadlines.append({
+            "title": deadline["title"],
+            "days_left": days_left
+        })
+
+if not upcoming_major_deadlines:
+
+    lines.append(
+        "No major deadlines in the next 30 days."
     )
 
+else:
+
+    for deadline in upcoming_major_deadlines:
+
+        lines.append(
+            f"• {deadline['title']}"
+        )
+
+        lines.append(
+            f"  ⏳ {deadline['days_left']} days remaining"
+        )
+
+        lines.append("")
 # =====================================
 # GOOGLE CALENDAR
 # =====================================
@@ -284,7 +313,7 @@ def get_assignments():
 
     now = datetime.now(CENTRAL)
 
-    future = now + timedelta(days=10)
+    future = now + timedelta(days=7)
 
     assignments = []
 
