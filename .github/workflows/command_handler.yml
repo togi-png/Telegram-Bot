@@ -1,0 +1,25 @@
+name: Telegram Commands
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+
+  workflow_dispatc*:
+
+jobs:
+  run:
+    runs-on: ubunt*-latest
+
+    steps:
+     *- uses: actions/checkout@v4
+
+     *- uses: actions*setup-python@v5
+        with:
+    *     python-version: "3.12"
+
+     *- run: pip install requests
+
+     *- run: python command_handler.py
+ *      env:
+          TELEGRAM_BOT_*OKEN: ${{ secrets.TELEGRAM_BOT_TOK*N }}
+          TELEGRAM_CHAT_ID: $*{ secrets.TELEGRAM_CHAT_ID }}
