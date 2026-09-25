@@ -1,15 +1,13 @@
-name: Daily Student Assistant
+name: Nightly Student Planner
 
 on:
   workflow_dispatch:
+
   schedule:
-    - cron: "0 14 * * *"   # 9:00 AM Central
-    - cron: "0 3 * * *"    # 10:00 PM Central
+    - cron: "30 0 * * *"
 
 jobs:
-
-  morning_assignments:
-    if: github.event.schedule == '0 14 * * *'
+  run:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,35 +17,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: Run Morning Assignments
+      - name: Run planner
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CANVAS_ICS_URL: ${{ secrets.CANVAS_ICS_URL }}
           GOOGLE_ICS_URL: ${{ secrets.GOOGLE_ICS_URL }}
-          MODE: assignments
-        run: python notifier.py
-
-  night_classes:
-    if: github.event.schedule == '0 3 * * *'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - run: pip install -r requirements.txt
-
-      - name: Run Night Classes
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          CANVAS_ICS_URL: ${{ secrets.CANVAS_ICS_URL }}
-          GOOGLE_ICS_URL: ${{ secrets.GOOGLE_ICS_URL }}
-          MODE: classes
         run: python notifier.py
