@@ -86,6 +86,7 @@ def is_major_deadline(title):
 
     keywords = [
         "midterm",
+        "quiz",
         "final",
         "project",
         "paper",
