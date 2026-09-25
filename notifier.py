@@ -41,6 +41,40 @@ def send_telegram(message):
 
     print(response.text)
 
+import json
+
+TASKS_FILE = "tasks.json"
+
+
+def load_tasks():
+
+    try:
+
+        with open(
+            TASKS_FILE,
+            "r"
+        ) as f:
+
+            return json.load(f)
+
+    except Exception:
+
+        return []
+
+
+def save_tasks(tasks):
+
+    with open(
+        TASKS_FILE,
+        "w"
+    ) as f:
+
+        json.dump(
+            tasks,
+            f,
+            indent=2
+        )
+
 
 # =====================================
 # WORKLOAD ESTIMATES
@@ -291,6 +325,24 @@ try:
             )
 
             lines.append("")
+            # -------------------------
+# PERSONAL TASKS
+# -------------------------
+
+tasks = load_tasks()
+
+if tasks:
+
+    lines.append("📝 PERSONAL TASKS")
+    lines.append("")
+
+    for task in tasks:
+
+        lines.append(
+            f"• {task['title']}"
+        )
+
+    lines.append("")
 
             for assignment in assignments:
 
