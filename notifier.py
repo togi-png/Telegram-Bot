@@ -306,7 +306,7 @@ def calculate_time_blocks(
 
     tomorrow = (
         datetime.now(CENTRAL).date()
-        + timedelta(days=1)
+        + timedelta(days=3)
     )
 
     start_day = datetime(
