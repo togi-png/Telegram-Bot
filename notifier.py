@@ -283,6 +283,134 @@ def get_assignments():
     return assignments
 
 
+def calculate_time_blocks(classes, assignments):
+
+    now = datetime.now(timezone.utc)
+
+    tomorrow = (
+        now.date() + timedelta(days=1)
+    )
+
+    day_start = datetime.combine(
+        tomorrow,
+        datetime.min.time()
+    ).replace(
+        hour=9,
+        minute=0,
+        tzinfo=timezone.utc
+    )
+
+    day_end = datetime.combine(
+        tomorrow,
+        datetime.min.time()
+    ).replace(
+        hour=23,
+        minute=0,
+        tzinfo=timezone.utc
+    )
+
+    busy = []
+
+    for c in classes:
+
+        busy.append(
+            (
+                c["start"],
+                c["end"]
+            )
+        )
+
+    busy.sort()
+
+    current = day_start
+
+    free_slots = []
+
+    for start, end in busy:
+
+        if start > current:
+
+            free_slots.append(
+                (
+                    current,
+                    start
+                )
+            )
+
+        current = max(
+            current,
+            end
+        )
+
+    if current < day_end:
+
+        free_slots.append(
+            (
+                current,
+                day_end
+            )
+        )
+
+    urgent_assignments = []
+
+    today = now.date()
+
+    for a in assignments:
+
+        days_left = (
+            a["due"].date()
+            - today
+        ).days
+
+        if days_left <= 3:
+
+            urgent_assignments.append(a)
+
+    blocks = []
+
+    task_index = 0
+
+    for slot_start, slot_end in free_slots:
+
+        if task_index >= len(
+            urgent_assignments
+        ):
+            break
+
+        minutes_available = int(
+            (
+                slot_end - slot_start
+            ).total_seconds()
+            / 60
+        )
+
+        if minutes_available < 45:
+            continue
+
+        task = urgent_assignments[
+            task_index
+        ]
+
+        duration = min(
+            task["minutes"],
+            90,
+            minutes_available
+        )
+
+        blocks.append({
+            "task": task["title"],
+            "start": slot_start,
+            "end": slot_start
+                   + timedelta(
+                       minutes=duration
+                   ),
+            "duration": duration
+        })
+
+        task_index += 1
+
+    return blocks
+
 # =====================================
 # MAIN
 # =====================================
@@ -295,6 +423,11 @@ try:
 
     assignments = get_assignments()
 
+    study_blocks = calculate_time_blocks(
+    classes,
+    assignments
+)
+    
     lines = [
         "🌙 TOMORROW & UPCOMING WORK",
         ""
@@ -450,3 +583,35 @@ except Exception as e:
     )
 
     raise
+
+lines.append(
+    "💡 SUGGESTED STUDY BLOCKS"
+)
+
+lines.append("")
+
+if not study_blocks:
+
+    lines.append(
+        "No study blocks needed."
+    )
+
+else:
+
+    for block in study_blocks:
+
+        lines.append(
+            f"• {block['task']}"
+        )
+
+        lines.append(
+            f"  🕒 "
+            f"{block['start'].strftime('%I:%M %p')} - "
+            f"{block['end'].strftime('%I:%M %p')}"
+        )
+
+        lines.append(
+            f"  ⏱ {block['duration']} min"
+        )
+
+        lines.append("")
