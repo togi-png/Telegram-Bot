@@ -1,3 +1,5 @@
+# CONFIG 
+#====================================
 import os
 import requests
 
@@ -5,50 +7,13 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from icalendar import Calendar
 
-# =====================================
-# TIMEZONE
-# =====================================
-
 CENTRAL = ZoneInfo("America/Chicago")
-
-# =====================================
-# CONFIG
-# =====================================
 
 CANVAS_ICS_URL = os.environ["CANVAS_ICS_URL"]
 GOOGLE_ICS_URL = os.environ["GOOGLE_ICS_URL"]
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-
-# =====================================
-# MANUAL DEADLINES
-# =====================================
-
-COURSE_DEADLINES = [
-    {
-        "title": "LING 101 Research Assignment 1 Summary Paper",
-        "due": datetime(
-            2026,
-            10,
-            30,
-            23,
-            59,
-            tzinfo=CENTRAL
-        )
-    },
-    {
-        "title": "LING 101 Research Assignment 2 Summary Paper",
-        "due": datetime(
-            2026,
-            12,
-            7,
-            23,
-            59,
-            tzinfo=CENTRAL
-        )
-    }
-]
 
 # =====================================
 # TELEGRAM
@@ -70,7 +35,6 @@ def send_telegram(message):
 # =====================================
 # WORKLOAD ESTIMATION
 # =====================================
-
 def estimate_minutes(title):
 
     title = title.lower()
@@ -80,6 +44,9 @@ def estimate_minutes(title):
 
     if "discussion" in title:
         return 30
+
+    if "reading" in title:
+        return 45
 
     if "homework" in title:
         return 60
@@ -105,76 +72,43 @@ def estimate_minutes(title):
     if "project" in title:
         return 300
 
+    if "final" in title:
+        return 300
+
     return 60
 
 # =====================================
 # MAJOR DEADLINES
 # =====================================
+def is_major_deadline(title):
 
-lines.append("")
-lines.append("📅 MAJOR DEADLINES")
-lines.append("")
+    title = title.lower()
 
-today = datetime.now(CENTRAL)
+    keywords = [
+        "midterm",
+        "final",
+        "project",
+        "paper",
+        "essay",
+        "research",
+        "presentation",
+        "exam",
+        "proposal",
+        "report",
+        "portfolio",
+        "thesis",
+        "draft"
+    ]
 
-upcoming_major_deadlines = []
-
-# Canvas-detected major deadlines
-
-for deadline in major_deadlines:
-
-    days_left = (
-        deadline["due"].date()
-        - today.date()
-    ).days
-
-    if days_left <= 30:
-
-        upcoming_major_deadlines.append({
-            "title": deadline["title"],
-            "days_left": days_left
-        })
-
-# Manual syllabus deadlines
-
-for deadline in COURSE_DEADLINES:
-
-    days_left = (
-        deadline["due"].date()
-        - today.date()
-    ).days
-
-    if 0 <= days_left <= 30:
-
-        upcoming_major_deadlines.append({
-            "title": deadline["title"],
-            "days_left": days_left
-        })
-
-if not upcoming_major_deadlines:
-
-    lines.append(
-        "No major deadlines in the next 30 days."
+    return any(
+        keyword in title
+        for keyword in keywords
     )
-
-else:
-
-    for deadline in upcoming_major_deadlines:
-
-        lines.append(
-            f"• {deadline['title']}"
-        )
-
-        lines.append(
-            f"  ⏳ {deadline['days_left']} days remaining"
-        )
-
-        lines.append("")
 # =====================================
 # GOOGLE CALENDAR
 # =====================================
 
-def get_google_events(days=2):
+def get_google_events():
 
     response = requests.get(
         GOOGLE_ICS_URL,
@@ -188,8 +122,7 @@ def get_google_events(days=2):
     )
 
     now = datetime.now(CENTRAL)
-
-    future = now + timedelta(days=days)
+    future = now + timedelta(days=2)
 
     events = []
 
@@ -198,48 +131,43 @@ def get_google_events(days=2):
         if component.name != "VEVENT":
             continue
 
-        start = component.get("dtstart")
+        start_obj = component.get("dtstart")
 
-        if start is None:
+        if start_obj is None:
             continue
 
-        start_time = start.dt
+        start = start_obj.dt
 
-        if not isinstance(
-            start_time,
-            datetime
-        ):
+        if not isinstance(start, datetime):
             continue
 
-        if start_time.tzinfo is None:
-            start_time = start_time.replace(
+        if start.tzinfo is None:
+            start = start.replace(
                 tzinfo=CENTRAL
             )
 
-        if not (
-            now <= start_time <= future
-        ):
+        if not (now <= start <= future):
             continue
 
-        end = component.get("dtend")
+        end = None
 
-        end_time = None
+        end_obj = component.get("dtend")
 
         if (
-            end is not None
-            and isinstance(end.dt, datetime)
+            end_obj is not None
+            and isinstance(end_obj.dt, datetime)
         ):
-            end_time = end.dt
+            end = end_obj.dt
 
         events.append({
             "title": str(
                 component.get(
                     "summary",
-                    "Untitled Event"
+                    "Event"
                 )
             ),
-            "start": start_time,
-            "end": end_time,
+            "start": start,
+            "end": end,
             "location": str(
                 component.get(
                     "location",
@@ -253,7 +181,6 @@ def get_google_events(days=2):
     )
 
     return events
-
 # =====================================
 # TOMORROW CLASSES
 # =====================================
@@ -267,17 +194,19 @@ def get_tomorrows_classes():
 
     classes = []
 
-    for event in get_google_events(2):
+    for event in get_google_events():
 
         if event["start"].date() == tomorrow:
-            classes.append(event)
+
+            classes.append(
+                event
+            )
 
     return classes
 
 # =====================================
 # PERSONAL EVENTS
 # =====================================
-
 def get_personal_events():
 
     tomorrow = (
@@ -287,10 +216,13 @@ def get_personal_events():
 
     events = []
 
-    for event in get_google_events(2):
+    for event in get_google_events():
 
         if event["start"].date() != tomorrow:
-            events.append(event)
+
+            events.append(
+                event
+            )
 
     return events
 
@@ -322,21 +254,23 @@ def get_assignments():
         if component.name != "VEVENT":
             continue
 
-        due = component.get("dtstart")
+        due_obj = component.get(
+            "dtstart"
+        )
 
-        if due is None:
+        if due_obj is None:
             continue
 
-        due_date = due.dt
+        due = due_obj.dt
 
         if not isinstance(
-            due_date,
+            due,
             datetime
         ):
             continue
 
         if not (
-            now <= due_date <= future
+            now <= due <= future
         ):
             continue
 
@@ -349,8 +283,10 @@ def get_assignments():
 
         assignments.append({
             "title": title,
-            "due": due_date,
-            "minutes": estimate_minutes(title)
+            "due": due,
+            "minutes": estimate_minutes(
+                title
+            )
         })
 
     assignments.sort(
@@ -373,7 +309,7 @@ def calculate_time_blocks(
         + timedelta(days=1)
     )
 
-    day_start = datetime(
+    start_day = datetime(
         tomorrow.year,
         tomorrow.month,
         tomorrow.day,
@@ -382,7 +318,7 @@ def calculate_time_blocks(
         tzinfo=CENTRAL
     )
 
-    day_end = datetime(
+    end_day = datetime(
         tomorrow.year,
         tomorrow.month,
         tomorrow.day,
@@ -395,7 +331,7 @@ def calculate_time_blocks(
 
     for c in classes:
 
-        if c["end"] is not None:
+        if c["end"]:
 
             busy.append(
                 (
@@ -406,15 +342,15 @@ def calculate_time_blocks(
 
     busy.sort()
 
-    free_slots = []
+    free = []
 
-    current = day_start
+    current = start_day
 
     for start, end in busy:
 
         if start > current:
 
-            free_slots.append(
+            free.append(
                 (
                     current,
                     start
@@ -426,12 +362,12 @@ def calculate_time_blocks(
             end
         )
 
-    if current < day_end:
+    if current < end_day:
 
-        free_slots.append(
+        free.append(
             (
                 current,
-                day_end
+                end_day
             )
         )
 
@@ -441,23 +377,22 @@ def calculate_time_blocks(
         CENTRAL
     ).date()
 
-    for assignment in assignments:
+    for item in assignments:
 
         days_left = (
-            assignment["due"].date()
+            item["due"].date()
             - today
         ).days
 
         if days_left <= 3:
-            urgent.append(
-                assignment
-            )
+
+            urgent.append(item)
 
     blocks = []
 
     idx = 0
 
-    for start, end in free_slots:
+    for start, end in free:
 
         if idx >= len(urgent):
             break
@@ -465,8 +400,7 @@ def calculate_time_blocks(
         available = int(
             (
                 end - start
-            ).total_seconds()
-            / 60
+            ).total_seconds() / 60
         )
 
         if available < 45:
@@ -475,9 +409,9 @@ def calculate_time_blocks(
         task = urgent[idx]
 
         duration = min(
-            available,
+            90,
             task["minutes"],
-            90
+            available
         )
 
         blocks.append({
@@ -497,6 +431,10 @@ def calculate_time_blocks(
 # MAIN
 # =====================================
 
+# =====================================
+# MAIN
+# =====================================
+
 try:
 
     classes = get_tomorrows_classes()
@@ -507,9 +445,7 @@ try:
 
     major_deadlines = [
         a for a in assignments
-        if is_major_deadline(
-            a["title"]
-        )
+        if is_major_deadline(a["title"])
     ]
 
     study_blocks = calculate_time_blocks(
@@ -522,13 +458,9 @@ try:
         ""
     ]
 
-    lines.append("⚠ PREP FOR NEXT CLASS")
-    lines.append("")
-
-    for item in COURSE_PREP:
-        lines.append(f"• {item}")
-
-    lines.append("")
+    # -------------------------
+    # TOMORROW'S CLASSES
+    # -------------------------
 
     lines.append("📚 TOMORROW'S CLASSES")
     lines.append("")
@@ -562,10 +494,16 @@ try:
             "No classes scheduled tomorrow."
         )
 
-    lines.append("")
+        lines.append("")
+
+    # -------------------------
+    # PERSONAL EVENTS
+    # -------------------------
+
     lines.append(
         "📝 PERSONAL EVENTS (Next 2 Days)"
     )
+
     lines.append("")
 
     if personal_events:
@@ -585,13 +523,19 @@ try:
     else:
 
         lines.append(
-            "No upcoming events."
+            "No upcoming personal events."
         )
 
-    lines.append("")
+        lines.append("")
+
+    # -------------------------
+    # HOMEWORK
+    # -------------------------
+
     lines.append(
-        "📚 HOMEWORK (Next 10 Days)"
+        "📚 HOMEWORK (Next 7 Days)"
     )
+
     lines.append("")
 
     if assignments:
@@ -606,7 +550,7 @@ try:
         )
 
         lines.append(
-            f"Estimated Workload: {round(total_minutes/60,1)} hrs"
+            f"Estimated Workload: {round(total_minutes / 60, 1)} hrs"
         )
 
         lines.append("")
@@ -615,9 +559,7 @@ try:
 
             days_left = (
                 assignment["due"].date()
-                - datetime.now(
-                    CENTRAL
-                ).date()
+                - datetime.now(CENTRAL).date()
             ).days
 
             lines.append(
@@ -641,50 +583,78 @@ try:
     else:
 
         lines.append(
-            "✅ No assignments due."
+            "✅ No assignments due in the next 7 days."
         )
 
-    lines.append("")
-    lines.append("📅 MAJOR DEADLINES")
+        lines.append("")
+
+    # -------------------------
+    # MAJOR DEADLINES
+    # -------------------------
+
+    lines.append(
+        "📅 MAJOR DEADLINES (Next 30 Days)"
+    )
+
     lines.append("")
 
     today = datetime.now(CENTRAL)
 
-    for deadline in major_deadlines:
+    upcoming_major_deadlines = []
+
+    for item in major_deadlines:
 
         days_left = (
-            deadline["due"].date()
+            item["due"].date()
             - today.date()
         ).days
 
-        lines.append(
-            f"• {deadline['title']}"
-        )
+        if 0 <= days_left <= 30:
+
+            upcoming_major_deadlines.append({
+                "title": item["title"],
+                "due": item["due"],
+                "days_left": days_left
+            })
+
+    upcoming_major_deadlines.sort(
+        key=lambda x: x["due"]
+    )
+
+    if upcoming_major_deadlines:
+
+        for item in upcoming_major_deadlines:
+
+            lines.append(
+                f"• {item['title']}"
+            )
+
+            lines.append(
+                f"  📅 {item['due'].strftime('%a %m/%d %I:%M %p')}"
+            )
+
+            lines.append(
+                f"  ⏳ {item['days_left']} day(s) remaining"
+            )
+
+            lines.append("")
+
+    else:
 
         lines.append(
-            f"  ⏳ {days_left} days remaining"
+            "No major deadlines within 30 days."
         )
 
         lines.append("")
 
-    for deadline in COURSE_DEADLINES:
+    # -------------------------
+    # STUDY BLOCKS
+    # -------------------------
 
-        days_left = (
-            deadline["due"].date()
-            - today.date()
-        ).days
+    lines.append(
+        "💡 SUGGESTED STUDY BLOCKS"
+    )
 
-        lines.append(
-            f"• {deadline['title']}"
-        )
-
-        lines.append(
-            f"  ⏳ {days_left} days remaining"
-        )
-
-        lines.append("")
-
-    lines.append("💡 SUGGESTED STUDY BLOCKS")
     lines.append("")
 
     if study_blocks:
