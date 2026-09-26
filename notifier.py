@@ -326,6 +326,26 @@ def get_assignments():
 
     return assignments
 
+    def assignment_icon(title):
+
+    title = title.lower()
+
+    if "read" in title or "reading" in title:
+        return "📖"
+
+    if "discussion" in title:
+        return "📝"
+
+    return "📄"
+
+icon = assignment_icon(
+    assignment["title"]
+)
+
+lines.append(
+    f"{icon} {assignment['title']}"
+)
+
 # =====================================
 # STUDY BLOCKS
 # =====================================
