@@ -80,6 +80,21 @@ def estimate_minutes(title):
 
     return 60
 
+def assignment_icon(title):
+
+    title = title.lower()
+
+    if "read" in title or "reading" in title:
+        return "📖"
+
+    if "discussion" in title:
+        return "📝"
+
+    if "lab" in title:
+        return "🧪"
+
+    return "📄"
+
 # =====================================
 # ASSESSMENT DETECTION
 # =====================================
@@ -150,7 +165,7 @@ def get_google_events():
     )
 
     now = datetime.now(CENTRAL)
-    future = now + timedelta(days=1)
+    future = now + timedelta(days=2)
 
     events = []
 
@@ -615,8 +630,12 @@ try:
                 ).date()
             ).days
 
+            icon = assignment_icon(
+                assignment["title"]
+            )
+            
             lines.append(
-                f"• {assignment['title']}"
+                f"{icon} {assignment['title']}"
             )
 
             lines.append(
