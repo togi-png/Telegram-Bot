@@ -4,6 +4,7 @@ import requests
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from icalendar import Calendar
+from dateutil.rrule import rruleset, rrulestr
 
 # =====================================
 # CONFIG
@@ -129,6 +130,119 @@ def to_central(value, end_of_day=False):
 
     return None
 
+
+def _prop_list(value):
+
+    if value is None:
+        return []
+
+    if isinstance(value, list):
+        return value
+
+    return [value]
+
+
+def event_occurrences(component, window_start, window_end):
+
+    start_obj = component.get("dtstart")
+
+    if start_obj is None:
+        return []
+
+    start = to_central(start_obj.dt)
+
+    if start is None:
+        return []
+
+    end_obj = component.get("dtend")
+    duration_obj = component.get("duration")
+
+    if end_obj is not None:
+
+        end = to_central(end_obj.dt)
+        duration = (
+            end - start
+            if end is not None
+            else timedelta(hours=1)
+        )
+
+    elif duration_obj is not None:
+
+        duration = duration_obj.dt
+
+    else:
+
+        duration = timedelta(hours=1)
+
+    def overlaps(occ_start):
+
+        occ_end = occ_start + duration
+
+        return occ_end >= window_start and occ_start <= window_end
+
+    rrule_obj = component.get("rrule")
+
+    if rrule_obj is None:
+
+        return [(start, start + duration)] if overlaps(start) else []
+
+    rule_set = rruleset()
+    rule_bytes = rrule_obj.to_ical()
+    rule_text = (
+        rule_bytes.decode()
+        if isinstance(rule_bytes, bytes)
+        else str(rule_bytes)
+    )
+
+    try:
+
+        rule_set.rrule(
+            rrulestr(rule_text, dtstart=start)
+        )
+
+    except Exception:
+
+        return [(start, start + duration)] if overlaps(start) else []
+
+    for rdate in _prop_list(component.get("rdate")):
+
+        dts = getattr(rdate, "dts", None) or [rdate]
+
+        for item in dts:
+
+            value = item.dt if hasattr(item, "dt") else item
+            extra = to_central(value)
+
+            if extra is not None:
+                rule_set.rdate(extra)
+
+    for exdate in _prop_list(component.get("exdate")):
+
+        dts = getattr(exdate, "dts", None) or [exdate]
+
+        for item in dts:
+
+            value = item.dt if hasattr(item, "dt") else item
+            skipped = to_central(value)
+
+            if skipped is not None:
+                rule_set.exdate(skipped)
+
+    occurrences = []
+
+    for occ in rule_set.between(window_start, window_end, inc=True):
+
+        occ_start = to_central(occ)
+
+        if occ_start is None:
+            continue
+
+        occurrences.append(
+            (occ_start, occ_start + duration)
+        )
+
+    return occurrences
+
 # =====================================
 # ASSESSMENT DETECTION
 # =====================================
@@ -199,9 +313,13 @@ def get_google_events():
     )
 
     now = datetime.now(CENTRAL)
-    future = now + timedelta(days=2)
-    today = now.date()
-    last_day = (now + timedelta(days=2)).date()
+    window_start = now.replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0
+    )
+    window_end = window_start + timedelta(days=3)
 
     events = []
 
@@ -210,52 +328,29 @@ def get_google_events():
         if component.name != "VEVENT":
             continue
 
-        start_obj = component.get("dtstart")
-
-        if start_obj is None:
-            continue
-
-        start = to_central(start_obj.dt)
-
-        if start is None:
-            continue
-
-        all_day = not isinstance(start_obj.dt, datetime)
-
-        end = None
-        end_obj = component.get("dtend")
-
-        if end_obj is not None:
-            end = to_central(end_obj.dt)
-
-        if all_day:
-
-            if not (today <= start.date() <= last_day):
-                continue
-
-        else:
-
-            if end is not None:
-
-                if end < now or start > future:
-                    continue
-
-            elif not (now <= start <= future):
-                continue
-
         location = component.get("location")
+        title = str(
+            component.get(
+                "summary",
+                "Event"
+            )
+        )
 
-        events.append({
-            "title": str(
-                component.get(
-                    "summary",
-                    "Event"
-                )
-            ),
-            "start": start,
-            "end": end,
-            "location": str(location).strip() if location else ""
-        })
+        for start, end in event_occurrences(
+            component,
+            window_start,
+            window_end
+        ):
+
+            if end < now:
+                continue
+
+            events.append({
+                "title": title,
+                "start": start,
+                "end": end,
+                "location": str(location).strip() if location else ""
+            })
 
     events.sort(
         key=lambda x: x["start"]
