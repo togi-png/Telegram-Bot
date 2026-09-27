@@ -353,13 +353,13 @@ def get_assignments():
     
         return "📄"
 
-icon = assignment_icon(
-    assignment["title"]
-)
-
-lines.append(
-    f"{icon} {assignment['title']}"
-)
+        icon = assignment_icon(
+            assignment["title"]
+        )
+        
+        lines.append(
+            f"{icon} {assignment['title']}"
+        )
 
 # =====================================
 # STUDY BLOCKS
