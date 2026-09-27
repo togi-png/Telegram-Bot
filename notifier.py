@@ -1,7 +1,7 @@
 import os
 import requests
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from icalendar import Calendar
 
@@ -23,16 +23,25 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 def send_telegram(message):
 
-    response = requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id": CHAT_ID,
-            "text": message
-        },
-        timeout=30
-    )
+    # Telegram caps messages at 4096 characters
+    max_len = 4000
+    chunks = [
+        message[i:i + max_len]
+        for i in range(0, max(len(message), 1), max_len)
+    ]
 
-    response.raise_for_status()
+    for chunk in chunks:
+
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": CHAT_ID,
+                "text": chunk
+            },
+            timeout=30
+        )
+
+        response.raise_for_status()
 
 # =====================================
 # WORKLOAD ESTIMATION
@@ -93,7 +102,32 @@ def assignment_icon(title):
     if "lab" in title:
         return "🧪"
 
+    if "quiz" in title or "test" in title or "exam" in title:
+        return "🧠"
+
     return "📄"
+
+
+def to_central(value, end_of_day=False):
+
+    if isinstance(value, datetime):
+
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=CENTRAL)
+
+        return value.astimezone(CENTRAL)
+
+    if isinstance(value, date):
+
+        clock = time(23, 59) if end_of_day else time(0, 0)
+
+        return datetime.combine(
+            value,
+            clock,
+            tzinfo=CENTRAL
+        )
+
+    return None
 
 # =====================================
 # ASSESSMENT DETECTION
@@ -161,11 +195,13 @@ def get_google_events():
     response.raise_for_status()
 
     cal = Calendar.from_ical(
-        response.text
+        response.content
     )
 
     now = datetime.now(CENTRAL)
     future = now + timedelta(days=2)
+    today = now.date()
+    last_day = (now + timedelta(days=2)).date()
 
     events = []
 
@@ -179,30 +215,35 @@ def get_google_events():
         if start_obj is None:
             continue
 
-        start = start_obj.dt
+        start = to_central(start_obj.dt)
 
-        if not isinstance(start, datetime):
+        if start is None:
             continue
 
-        if start.tzinfo is None:
-            start = start.replace(
-                tzinfo=CENTRAL
-            )
-
-        if not (
-            now <= start <= future
-        ):
-            continue
+        all_day = not isinstance(start_obj.dt, datetime)
 
         end = None
-
         end_obj = component.get("dtend")
 
-        if (
-            end_obj is not None
-            and isinstance(end_obj.dt, datetime)
-        ):
-            end = end_obj.dt
+        if end_obj is not None:
+            end = to_central(end_obj.dt)
+
+        if all_day:
+
+            if not (today <= start.date() <= last_day):
+                continue
+
+        else:
+
+            if end is not None:
+
+                if end < now or start > future:
+                    continue
+
+            elif not (now <= start <= future):
+                continue
+
+        location = component.get("location")
 
         events.append({
             "title": str(
@@ -213,12 +254,7 @@ def get_google_events():
             ),
             "start": start,
             "end": end,
-            "location": str(
-                component.get(
-                    "location",
-                    ""
-                )
-            ).strip()
+            "location": str(location).strip() if location else ""
         })
 
     events.sort(
@@ -231,43 +267,33 @@ def get_google_events():
 # TOMORROW CLASSES
 # =====================================
 
-def get_tomorrows_classes():
+def get_tomorrows_classes(events):
 
     tomorrow = (
         datetime.now(CENTRAL).date()
         + timedelta(days=1)
     )
 
-    classes = []
-
-    for event in get_google_events():
-
-        if event["start"].date() == tomorrow:
-
-            classes.append(event)
-
-    return classes
+    return [
+        event for event in events
+        if event["start"].date() == tomorrow
+    ]
 
 # =====================================
 # PERSONAL EVENTS
 # =====================================
 
-def get_personal_events():
+def get_personal_events(events):
 
     tomorrow = (
         datetime.now(CENTRAL).date()
         + timedelta(days=1)
     )
 
-    personal = []
-
-    for event in get_google_events():
-
-        if event["start"].date() != tomorrow:
-
-            personal.append(event)
-
-    return personal
+    return [
+        event for event in events
+        if event["start"].date() != tomorrow
+    ]
 
 # =====================================
 # CANVAS ASSIGNMENTS
@@ -283,12 +309,13 @@ def get_assignments():
     response.raise_for_status()
 
     cal = Calendar.from_ical(
-        response.text
+        response.content
     )
 
     now = datetime.now(CENTRAL)
 
-    future = now + timedelta(days=7)
+    # Major deadlines look 30 days out; homework is filtered to 7 days later
+    future = now + timedelta(days=30)
 
     assignments = []
 
@@ -302,18 +329,13 @@ def get_assignments():
         if due_obj is None:
             continue
 
-        due = due_obj.dt
+        due = to_central(
+            due_obj.dt,
+            end_of_day=not isinstance(due_obj.dt, datetime)
+        )
 
-        if not isinstance(
-            due,
-            datetime
-        ):
+        if due is None:
             continue
-
-        if due.tzinfo is None:
-            due = due.replace(
-                tzinfo=CENTRAL
-            )
 
         if not (
             now <= due <= future
@@ -340,26 +362,6 @@ def get_assignments():
     )
 
     return assignments
-
-    def assignment_icon(title):
-
-        title = title.lower()
-    
-        if "read" in title or "reading" in title:
-            return "📖"
-    
-        if "discussion" in title:
-            return "📝"
-    
-        return "📄"
-
-        icon = assignment_icon(
-            assignment["title"]
-        )
-        
-        lines.append(
-            f"{icon} {assignment['title']}"
-        )
 
 # =====================================
 # STUDY BLOCKS
@@ -500,17 +502,22 @@ def calculate_time_blocks(
 
 try:
 
-    classes = get_tomorrows_classes()
+    google_events = get_google_events()
 
-    personal_events = get_personal_events()
+    classes = get_tomorrows_classes(google_events)
+
+    personal_events = get_personal_events(google_events)
 
     assignments = get_assignments()
+
+    homework_cutoff = datetime.now(CENTRAL) + timedelta(days=7)
 
     homework_items = [
         a for a in assignments
         if not is_assessment(
             a["title"]
         )
+        and a["due"] <= homework_cutoff
     ]
 
     major_deadlines = [
