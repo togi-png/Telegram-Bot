@@ -378,17 +378,6 @@ def get_tomorrows_classes(events):
 # PERSONAL EVENTS
 # =====================================
 
-def get_personal_events(events):
-
-    tomorrow = (
-        datetime.now(CENTRAL).date()
-        + timedelta(days=1)
-    )
-
-    return [
-        event for event in events
-        if event["start"].date() != tomorrow
-    ]
 
 # =====================================
 # CANVAS ASSIGNMENTS
