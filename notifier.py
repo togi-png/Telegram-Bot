@@ -590,8 +590,6 @@ try:
 
     classes = get_tomorrows_classes(google_events)
 
-    personal_events = get_personal_events(google_events)
-
     assignments = get_assignments()
 
     homework_cutoff = datetime.now(CENTRAL) + timedelta(days=7)
@@ -657,36 +655,7 @@ try:
 
         lines.append("")
 
-    # PERSONAL EVENTS
-
-    lines.append(
-        "📝 PERSONAL EVENTS (Next 2 Days)"
-    )
-
-    lines.append("")
-
-    if personal_events:
-
-        for event in personal_events:
-
-            lines.append(
-                f"• {event['title']}"
-            )
-
-            lines.append(
-                f"  📅 {event['start'].strftime('%a %m/%d %I:%M %p')}"
-            )
-
-            lines.append("")
-
-    else:
-
-        lines.append(
-            "No upcoming personal events."
-        )
-
-        lines.append("")
-
+   
     # HOMEWORK
 
     lines.append(
